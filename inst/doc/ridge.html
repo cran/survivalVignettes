@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Terry Therneau" />
+
+
+<title>The ridge function, matrices, and prediction</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">The ridge function, matrices, and
+prediction</h1>
+<h4 class="author">Terry Therneau</h4>
+<h4 class="date">Dec 2020</h4>
+
+
+
+<div id="the-ridge-function" class="section level1">
+<h1>The ridge function</h1>
+<p>The <code>ridge()</code> function was included in the survival
+package as a test of the code for penalized models. As the author of the
+package, I never actually use the function myself, and as a consequence
+it has never received any polish. But it does work. This neglect is
+simply due to the types of data that I analyse.</p>
+<p>This vignette was created to address a common issue with using the
+function, one that arises with some frequency on internet message
+boards. Hopefully this note will provide context and a reference for a
+solution. I will create a dummy dataset with 20 random 0/1 variables as
+a running example.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1954</span>)  <span class="co"># force reproducability</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(survival)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">nrow</span>(lung)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>snp <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rbinom</span>(<span class="dv">20</span><span class="sc">*</span>n, <span class="dv">1</span>, <span class="at">p=</span>.<span class="dv">1</span>), <span class="at">nrow=</span>n)</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>snpdata <span class="ot">&lt;-</span> <span class="fu">cbind</span>(lung, <span class="fu">data.frame</span>(snp))</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="fu">dim</span>(snpdata)</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="co">#&gt; [1] 228  30</span></span></code></pre></div>
+<div id="the-issue" class="section level2">
+<h2>The issue</h2>
+<p>The ridge function makes the most sense when there are a large number
+of variables, for instance if one had 100 SNPs. Say that you write the
+call in the obvious way:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>cfit1 <span class="ot">&lt;-</span> <span class="fu">coxph</span>(<span class="fu">Surv</span>(time, status) <span class="sc">~</span> age <span class="sc">+</span> sex <span class="sc">+</span> <span class="fu">ridge</span>(X1, X2, X3, X4, X5, X6,</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>                     X7, X8, X9, X10, X11, X12, X13, X14, X15, X16, X17, X18, </span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>             X19, X20, <span class="at">theta=</span>.<span class="dv">1</span>), <span class="at">data=</span>snpdata)</span></code></pre></div>
+<p>The problem with this, of course, is that typing this statement is
+cumbersome for 20 SNPs and practically impossible if there were 500. One
+can use <code>.</code> in R formulas to stand for “all the other
+variables”, but this does not work inside a function. This leads to the
+first work-around, which is to create the formula programatically.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>xlist <span class="ot">&lt;-</span>  <span class="fu">paste0</span>(<span class="st">&quot;X&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>myform <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="st">&quot;Surv(time, status) ~ age + sex + ridge(&quot;</span>,</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>                <span class="fu">paste</span>(xlist, <span class="at">collapse=</span> <span class="st">&quot;, &quot;</span>), <span class="st">&quot;, theta=.1)&quot;</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>cfit2 <span class="ot">&lt;-</span> <span class="fu">coxph</span>(<span class="fu">formula</span>(myform), <span class="at">data=</span>snpdata)</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="fu">all.equal</span>(cfit1<span class="sc">$</span>loglik, cfit2<span class="sc">$</span>loglik)</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<p>This approach works well up to a point and then fails, once the model
+statement grows too long for the internal buffer of the R parser. The
+solution is to call the ridge function with a single matrix
+argument.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>cfit3 <span class="ot">&lt;-</span> <span class="fu">coxph</span>(<span class="fu">Surv</span>(time, status) <span class="sc">~</span> age <span class="sc">+</span> sex <span class="sc">+</span> <span class="fu">ridge</span>(snp, <span class="at">theta=</span>.<span class="dv">1</span>),</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>         <span class="at">data =</span> snpdata)</span></code></pre></div>
+<p>This fit has completely ignored the variables X1, X2, …, X50 found in
+the dataframe. If the SNP data had come to us as a dataframe, then we
+would create a temporary matrix using the as.matrix command applied to
+the appropriate columns of said data.</p>
+<p>The problem with this approach comes if we want to do predictions
+using a new set of data.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>newsnp <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rbinom</span>(<span class="dv">20</span><span class="sc">*</span><span class="dv">4</span>, <span class="dv">1</span>, <span class="at">p=</span>.<span class="dv">12</span>), <span class="at">nrow=</span><span class="dv">4</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>prdata <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">age=</span> <span class="fu">c</span>(<span class="dv">50</span>, <span class="dv">65</span>, <span class="dv">48</span>, <span class="dv">70</span>), <span class="at">sex=</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">2</span>,<span class="dv">1</span>),</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>                     newsnp)</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="fu">predict</span>(cfit3, <span class="at">newdata=</span>prdata)</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; Error in model.frame.default(data = prdata, formula = ~age + sex + ridge(snp, : variable lengths differ (found for &#39;ridge(snp, theta = 0.1)&#39;)</span></span></code></pre></div>
+<p>We get a failure message that “variable lengths differ”. The reason
+is that R fitting functions look for their variables first in the
+<code>data=</code> argument, and then look in the primary working data
+for any that were not found. The call to cfit3 has 3 variables of age,
+sex, and snp; while the new dataframe prdata has variables of age, sex,
+X1, X2, …, X20. The predict function pulls 4 rows from prdata (for age
+and sex), and 50 rows from the global variable snp. This clearly does
+not work.</p>
+<p>What if we put those variables in the the main data, instead of a
+dataframe?</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>prdata <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">age=</span> <span class="fu">c</span>(<span class="dv">50</span>, <span class="dv">65</span>, <span class="dv">48</span>, <span class="dv">70</span>), <span class="at">sex=</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">2</span>,<span class="dv">1</span>),</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>                     newsnp)</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>snpsave <span class="ot">&lt;-</span> snp</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>snp <span class="ot">&lt;-</span> newsnp</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>age <span class="ot">&lt;-</span> prdata<span class="sc">$</span>age</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>sex <span class="ot">&lt;-</span> prdata<span class="sc">$</span>sex</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>new <span class="ot">&lt;-</span> <span class="fu">predict</span>(cfit3)</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="fu">length</span>(new)</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; [1] 228</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>snp <span class="ot">&lt;-</span> snpsave  <span class="co"># restore the status quo</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="fu">rm</span>(age, sex)</span></code></pre></div>
+<p>This time we have been tripped up by the
+<code>predict.coxph function</code>. If there is no newdata argument,
+the function assumes the user is asking for predictions using the
+original data, and that is what is produced. There is also the need to
+restore datasets that we overwrote.</p>
+<p>The most direct way around this is to do the prediction “by hand”.
+Since this dataset has no factor variables, splines, or other terms that
+lead to special coding, it is fairly easy to do the computation.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>prmat <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="at">age=</span> <span class="fu">c</span>(<span class="dv">50</span>, <span class="dv">65</span>, <span class="dv">48</span>, <span class="dv">70</span>), <span class="at">sex=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">1</span>), newsnp)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">drop</span>(prmat <span class="sc">%*%</span> <span class="fu">coef</span>(cfit3)) <span class="co"># simplify results to vector</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; [1] 0.1428461 0.9497542 0.1203784 1.0034065</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#alternate (center)</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="fu">drop</span>(prmat <span class="sc">%*%</span> <span class="fu">coef</span>(cfit3)) <span class="sc">-</span> <span class="fu">sum</span>(<span class="fu">coef</span>(cfit3)<span class="sc">*</span> cfit3<span class="sc">$</span>mean)</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt; [1] -0.2148958  0.5920124 -0.2373634  0.6456646</span></span></code></pre></div>
+<p>The <code>predict.coxph</code> function, by default, gives
+predictions for centered covariates. This has its roots in the internals
+of the <code>coxph</code> code, where centering is used to avoid
+overflow of the exp function. This is entirely optional when doing the
+prediction ourselves, unless one wants to match
+<code>predict.coxph</code>. (If I could go back in time, centering the
+predictions would be undone; it’s effect has been mostly to cause
+confusion. Que sera sera.)</p>
+<p>Suppose that one still wanted to use the standard predict function,
+for instance if the model did include a factor variable, or simply to
+fit in to the usual R pattern? What is needed is a way to store a matrix
+directly into a dataframe. This is done regularly by the
+<code>model.frame</code> function; the code below causes data.frame to
+use that behavior for our matrices of SNP values.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># new data type</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>ridgemat <span class="ot">&lt;-</span> <span class="cf">function</span>(x) {</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>    <span class="fu">class</span>(x) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;ridgemat&quot;</span>, <span class="fu">class</span>(x))</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>    x</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>}</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>as.data.frame.ridgemat <span class="ot">&lt;-</span> <span class="cf">function</span>(x, ...) </span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>    <span class="fu">as.data.frame.model.matrix</span>(<span class="fu">as.matrix</span>(x), ...)</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>snpdata2 <span class="ot">&lt;-</span> <span class="fu">cbind</span>(lung, <span class="at">snp=</span> <span class="fu">ridgemat</span>(snp))</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="fu">names</span>(snpdata2)</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#&gt;  [1] &quot;inst&quot;      &quot;time&quot;      &quot;status&quot;    &quot;age&quot;       &quot;sex&quot;      </span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a><span class="co">#&gt;  [6] &quot;ph.ecog&quot;   &quot;ph.karno&quot;  &quot;pat.karno&quot; &quot;meal.cal&quot;  &quot;wt.loss&quot;  </span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co">#&gt; [11] &quot;snp&quot;</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a></span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>cfit4 <span class="ot">&lt;-</span> <span class="fu">coxph</span>(<span class="fu">Surv</span>(time, status) <span class="sc">~</span> age <span class="sc">+</span> sex <span class="sc">+</span> <span class="fu">ridge</span>(snp, <span class="at">theta=</span>.<span class="dv">1</span>),</span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a>             <span class="at">data=</span> snpdata2)</span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a>     </span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a></span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a>prdata <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">age=</span> <span class="fu">c</span>(<span class="dv">50</span>, <span class="dv">65</span>, <span class="dv">48</span>, <span class="dv">70</span>), <span class="at">sex=</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">2</span>,<span class="dv">1</span>),</span>
+<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a>                       <span class="at">snp=</span> <span class="fu">ridgemat</span>(newsnp))</span>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a><span class="fu">predict</span>(cfit4, <span class="at">newdata=</span>prdata)</span>
+<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a><span class="co">#&gt;          1          2          3          4 </span></span>
+<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a><span class="co">#&gt; -0.2148958  0.5920124 -0.2373634  0.6456646</span></span></code></pre></div>
+<p>Success!</p>
+<p>The downside to this is that the modified dataframe object is known
+to work with modeling functions, but is not guaranteed to be comparable
+with standard manipulations for dataframes, such as merge, subset, etc.,
+or tidyverse concepts such as a tibble.</p>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
